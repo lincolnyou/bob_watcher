@@ -1,0 +1,37 @@
+name: Wallet watcher
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: watcher
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load last balances
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: balances-${{ github.run_id }}
+          restore-keys: balances-
+      - name: Check the wallet
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python3 watch.py ${{ github.event_name == 'workflow_dispatch' && '--test' || '' }}
+      - name: Save balances
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: balances-${{ github.run_id }}
